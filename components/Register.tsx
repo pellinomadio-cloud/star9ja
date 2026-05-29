@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Icons } from './Icons';
 
 interface RegisterProps {
-  onRegister: (name: string, email: string) => void;
+  onRegister: (name: string, email: string, referralCode?: string) => void;
   onSwitchToLogin: () => void;
 }
 
@@ -11,6 +11,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,7 +34,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin }) => {
     
     // Simulate API call
     setTimeout(() => {
-      onRegister(name, email);
+      onRegister(name, email, referralCode);
       setIsLoading(false);
     }, 1000);
   };
@@ -115,6 +116,24 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin }) => {
                   placeholder="Create 4-digit PIN"
                   value={password}
                   onChange={handlePasswordChange}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="referralCode" className="sr-only">Referral Code (Optional)</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Icons.Gift className="h-5 w-5 text-gray-300" />
+                </div>
+                <input
+                  id="referralCode"
+                  name="referralCode"
+                  type="text"
+                  className="appearance-none rounded-2xl relative block w-full pl-12 px-4 py-4 border border-gray-100 placeholder-gray-300 text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400 focus:shadow-[0_0_15px_rgba(6,182,212,0.15)] sm:text-sm transition-all shadow-sm"
+                  placeholder="Referral Code (Optional)"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                 />
               </div>
             </div>

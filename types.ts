@@ -68,6 +68,7 @@ export interface User {
   activationPlan?: 'weekly' | 'monthly' | 'yearly';
   activationSubmitTime?: number;
   activationProofBase64?: string;
+  referredBy?: string;
   
   // Custom notifications inbox
   notifications?: Array<{

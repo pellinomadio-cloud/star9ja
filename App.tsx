@@ -220,7 +220,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', onPopState);
   }, [activeTab, currentView, handleBack]);
 
-  const handleRegister = (name: string, email: string) => {
+  const handleRegister = (name: string, email: string, referralCode?: string) => {
     const initialTransaction: Transaction = {
         id: `trx-${Date.now()}`,
         type: 'credit',
@@ -229,9 +229,26 @@ const App: React.FC = () => {
         date: new Date().toISOString(),
         status: 'success'
     };
+    
+    const transactions = [initialTransaction];
+    let startBalance = 10000.00;
+    
+    if (referralCode && referralCode.trim() !== '') {
+      startBalance += 5000.00;
+      transactions.unshift({
+        id: `trx-ref-${Date.now()}`,
+        type: 'credit',
+        amount: 5000.00,
+        description: `Referral Code Bonus (${referralCode})`,
+        date: new Date().toISOString(),
+        status: 'success'
+      });
+    }
+
     const newUser: User = {
-      name, email, balance: 10000.00,
-      transactions: [initialTransaction],
+      name, email, balance: startBalance,
+      transactions: transactions,
+      referredBy: referralCode || undefined,
       rewardStatus: { currentDay: 1, lastClaimedTimestamp: 0 },
       notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES }
     };
@@ -364,6 +381,8 @@ const App: React.FC = () => {
     } else if (id === 'invite') {
         setTaskMode('quiz');
         setActiveTab('referral_dashboard');
+    } else if (id === 'refer_earn') {
+        setActiveTab('invite_earn');
     } else if (id === 'free_withdraw') {
         setTaskMode('telegram');
         setActiveTab('referral_dashboard');
@@ -589,7 +608,7 @@ const App: React.FC = () => {
     'send_money': 'Withdraw',
     'buy_service': serviceType === 'airtime' ? 'Buy Airtime' : 'Buy Data',
     'transaction_history': 'Transactions',
-    'invite_earn': 'Quiz Game', 'imminent_payment': 'Activation', 
+    'invite_earn': 'Refer & Earn', 'imminent_payment': 'Activation', 
     'referral_dashboard': taskMode === 'quiz' ? 'Quiz Game' : taskMode === 'telegram' ? 'Task' : 'Tasks',
     'upgrade_proposal': 'VIP Membership', 'upgrade_payment': 'Confirm VIP Status', 'buy_naira_code': 'ACTIVATE', 'business_hub': 'Business Hub',
     'receipt': 'Receipt',
@@ -660,6 +679,32 @@ const App: React.FC = () => {
                 />
               ) : (
                  <main className="px-4 py-2 space-y-4 animate-in fade-in duration-500">
+                    {user && user.activationStatus !== 'active' && (
+                      <div 
+                        onClick={() => setActiveTab('buy_naira_code')}
+                        className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-900 p-3.5 rounded-xl shadow-[0_4px_12px_rgba(239,68,68,0.1)] flex items-center justify-between mb-2 animate-in slide-in-from-top-4 duration-500 cursor-pointer transition-all"
+                      >
+                        <div className="flex items-center space-x-2.5 text-left">
+                          <div className="bg-red-600 text-white p-1.5 rounded-lg flex items-center justify-center shadow-md animate-pulse">
+                            <Icons.Ban size={16} />
+                          </div>
+                          <div>
+                            <span className="text-xs font-black uppercase tracking-wider block text-red-700">ACCOUNT STATUS: INACTIVE</span>
+                            <span className="text-[9.5px] font-bold text-red-500 uppercase tracking-widest block leading-tight">ACTIVATE PORTFOLIO TO ENABLE PAYOUTS</span>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTab('buy_naira_code');
+                          }}
+                          className="text-[9px] font-black bg-red-600 text-white px-2.5 py-1.5 rounded-lg uppercase tracking-wider flex items-center space-x-1 shadow-sm hover:bg-red-700 transition-colors"
+                        >
+                          <span>ACTIVATE NOW</span>
+                          <Icons.ChevronRight size={10} className="stroke-[3]" />
+                        </button>
+                      </div>
+                    )}
                     {user?.activationStatus === 'active' && (
                       <div className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-stone-950 p-3.5 rounded-xl shadow-[0_4px_15px_rgba(244,158,11,0.3)] flex items-center justify-between mb-4 animate-in slide-in-from-top-4 duration-500 border border-yellow-300/50">
                         <div className="flex items-center space-x-2.5 text-left">
@@ -710,7 +755,7 @@ const App: React.FC = () => {
                         setShowAdminPasswordModal(true);
                       }}
                     />
-                    <ActionGrid onActionClick={handleGridAction} />
+                    <ActionGrid onActionClick={handleGridAction} canClaimRewards={isClaimable} />
                     
                     {/* Recent Transactions Section */}
                     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">

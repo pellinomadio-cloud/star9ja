@@ -1,17 +1,16 @@
-
 import React from 'react';
 import { Icons } from './Icons';
 import { MenuItem } from '../types';
 
 const makePaymentItems: MenuItem[] = [
   { id: 'bank', label: 'Withdraw', icon: Icons.Send, color: 'text-blue-500' },
-  { id: 'airtime', label: 'Airtime', icon: Icons.Airtime, color: 'text-orange-500' },
-  { id: 'data', label: 'Data', icon: Icons.Data, color: 'text-blue-400' },
+  { id: 'refer_earn', label: 'Refer & Earn', icon: Icons.Share2, color: 'text-green-500' },
+  { id: 'rewards', label: 'Rewards', icon: Icons.Reward, color: 'text-pink-500' },
   { id: 'subscribe', label: 'ACTIVATE', icon: Icons.FileText, color: 'text-yellow-500' },
 ];
 
 const serviceItems: MenuItem[] = [
-  { id: 'rewards', label: 'Rewards', icon: Icons.Reward, color: 'text-red-500' },
+  { id: 'data', label: 'Data', icon: Icons.Data, color: 'text-blue-400' },
   { id: 'loan', label: 'Loan', icon: Icons.Loan, color: 'text-purple-500' },
   { id: 'business', label: 'Business', icon: Icons.Business, color: 'text-indigo-500' },
   { id: 'upgrade', label: 'Upgrade', icon: Icons.Upgrade, color: 'text-amber-500' },
@@ -23,9 +22,10 @@ const serviceItems: MenuItem[] = [
 
 interface ActionGridProps {
   onActionClick?: (id: string) => void;
+  canClaimRewards?: boolean;
 }
 
-const ActionGrid: React.FC<ActionGridProps> = ({ onActionClick }) => {
+const ActionGrid: React.FC<ActionGridProps> = ({ onActionClick, canClaimRewards }) => {
   return (
     <div className="space-y-6">
       {/* Make Payment Section */}
@@ -37,20 +37,36 @@ const ActionGrid: React.FC<ActionGridProps> = ({ onActionClick }) => {
         <div className="grid grid-cols-4 gap-4">
           {makePaymentItems.map((item) => {
             const Icon = item.icon;
-            // Highlight ACTIVATE with subtle glow
             const isNairaCode = item.id === 'subscribe';
+            const isRewards = item.id === 'rewards';
+            
             return (
               <div 
                 key={item.id} 
                 onClick={() => onActionClick?.(item.id)}
-                className="flex flex-col items-center space-y-2 cursor-pointer group"
+                className="flex flex-col items-center space-y-2 cursor-pointer group relative"
               >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 ${
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 relative ${
                   isNairaCode 
                     ? 'bg-red-50 text-red-600 border border-red-200 shadow-[0_4px_12px_rgba(229,57,53,0.15)] group-hover:scale-105' 
+                    : isRewards && canClaimRewards
+                    ? 'bg-pink-50 text-pink-600 border border-pink-200 shadow-[0_4px_12px_rgba(236,72,153,0.25)] group-hover:scale-105'
                     : 'bg-gray-50 text-gray-800 border border-gray-100/50 group-hover:scale-105 group-hover:bg-red-50/50 group-hover:text-red-600'
                 }`}>
-                  <Icon size={24} strokeWidth={isNairaCode ? 2.5 : 2} className={isNairaCode ? 'animate-bounce' : ''} />
+                  <Icon size={24} strokeWidth={isNairaCode ? 2.5 : isRewards ? 2.5 : 2} className={isNairaCode ? 'animate-bounce' : ''} />
+                  
+                  {isRewards && canClaimRewards && (
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce z-25 pointer-events-none">
+                      {/* Beautiful Pink Floating Tag */}
+                      <span className="bg-gradient-to-r from-pink-500 to-rose-500 text-white font-black text-[7.5px] px-2 py-0.5 rounded-full uppercase tracking-widest whitespace-nowrap shadow-[0_2px_8px_rgba(236,72,153,0.4)] leading-none border border-pink-400/35">
+                        Claim!
+                      </span>
+                      {/* Pointer/Arrow */}
+                      <svg className="w-3.5 h-3.5 text-pink-500 filter drop-shadow-[0_2px_4px_rgba(236,72,153,0.3)] -mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21l-7-8h5V3h4v10h5z" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
                 <span className="text-[10px] font-black text-gray-700 group-hover:text-red-600 text-center leading-tight transition-colors">{item.label}</span>
               </div>
@@ -68,9 +84,8 @@ const ActionGrid: React.FC<ActionGridProps> = ({ onActionClick }) => {
         <div className="grid grid-cols-4 gap-y-5 gap-x-4">
           {serviceItems.map((item) => {
             const Icon = item.icon;
-            // Add a little glowing blue outline to the VIP / Activation actions
             const isSpecial = item.id === 'palmpay' || item.id === 'upgrade';
-            const isGlowBlueTask = item.id === 'rewards' || item.id === 'free_withdraw';
+            const isGlowBlueTask = item.id === 'free_withdraw';
             
             return (
               <div 
