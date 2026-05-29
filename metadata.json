@@ -1,5 +1,6 @@
 {
   "name": "star9ja",
   "description": "A comprehensive financial dashboard for managing transactions, savings, and payments.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

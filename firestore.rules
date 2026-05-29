@@ -1,12 +1,55 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Global Safety Net
     match /{document=**} {
       allow read, write: if false;
     }
+
+    // Helper functions
+    function incoming() {
+      return request.resource.data;
+    }
     
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.\\@]+$');
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'balance'])
+        && data.name is string && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 100
+        && data.balance is number
+        && (!('profileImage' in data) || data.profileImage is string)
+        && (!('deactivationDate' in data) || data.deactivationDate is int)
+        && (!('imminentDeactivationExpiry' in data) || data.imminentDeactivationExpiry is int)
+        && (!('isVIP' in data) || data.isVIP is bool)
+        && (!('vipBalance' in data) || data.vipBalance is number)
+        && (!('loanBalance' in data) || data.loanBalance is number)
+        && (!('loanExpiry' in data) || data.loanExpiry is int)
+        && (!('isPMode' in data) || data.isPMode is bool)
+        && (!('isVMode' in data) || data.isVMode is bool)
+        && (!('lastTelegramClaimTimestamp' in data) || data.lastTelegramClaimTimestamp is int)
+        && (!('dailyQuizCount' in data) || data.dailyQuizCount is int)
+        && (!('lastQuizTimestamp' in data) || data.lastQuizTimestamp is int)
+        && (!('activationStatus' in data) || data.activationStatus in ['inactive', 'pending', 'active', 'banned'])
+        && (!('activationPlan' in data) || data.activationPlan in ['weekly', 'monthly', 'yearly'])
+        && (!('activationSubmitTime' in data) || data.activationSubmitTime is int)
+        && (!('activationProofBase64' in data) || data.activationProofBase64 is string)
+        && (!('referredBy' in data) || data.referredBy is string);
+    }
+
+    // Match users collection
     match /users/{userId} {
-      allow read, write: if true;
+      allow get, list: if true;
+      allow create: if isValidId(userId) && isValidUser(incoming());
+      allow update: if isValidId(userId) && isValidUser(incoming()) && incoming().email == existing().email;
+      allow delete: if false;
     }
   }
 }
