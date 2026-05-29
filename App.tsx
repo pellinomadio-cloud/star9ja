@@ -29,6 +29,7 @@ import BusinessHub from './components/BusinessHub';
 import Loan from './components/Loan';
 import { Icons } from './components/Icons';
 import { User, Transaction, RewardStatus } from './types';
+import { saveUserToFirestore, getUserFromFirestore, syncLocalToFirestore, syncFirestoreToLocal } from './firebase';
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
   withdrawals: true,
@@ -48,65 +49,97 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Helper to get stored users safely
-  const getStoredUsers = () => {
-    try {
-        const stored = localStorage.getItem('star9ja_users') || localStorage.getItem('naira9ja_users');
-        return stored ? JSON.parse(stored) : {};
-    } catch (e) {
-        return {};
-    }
-  };
+  // Active User State
+  const [user, setUser] = useState<User | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [currentView, setCurrentView] = useState<'login' | 'register' | 'dashboard'>('register');
 
-  // Initialize User State from LocalStorage (Persistence)
-  const [user, setUser] = useState<User | null>(() => {
+  // Helper to update state and sync changes directly to Firestore
+  const saveUserToStorage = useCallback(async (u: User) => {
+    setUser(u);
     try {
+      await saveUserToFirestore(u);
+    } catch (e) {
+      console.error("Failed to save changes to Firestore:", e);
+    }
+  }, []);
+
+  // Global Session Initialization on Mount
+  useEffect(() => {
+    const initSession = async () => {
+      try {
         const activeEmail = localStorage.getItem('star9ja_active_session') || localStorage.getItem('naira9ja_active_session');
         if (activeEmail) {
-            const users = getStoredUsers();
-            const storedUser = users[activeEmail.toLowerCase()];
-            if (storedUser) {
-                // Migration: Ensure transactions array exists
-                if (!storedUser.transactions) {
-                    storedUser.transactions = [{
-                        id: 'trx-init',
-                        type: 'credit',
-                        amount: 10000,
-                        description: 'Welcome Bonus',
-                        date: new Date().toISOString(),
-                        status: 'success'
-                    }];
-                }
-                // Migration: Ensure rewardStatus exists
-                if (!storedUser.rewardStatus) {
-                    storedUser.rewardStatus = {
-                        currentDay: 1,
-                        lastClaimedTimestamp: 0
-                    };
-                }
-                // Migration: Ensure notificationPreferences exists
-                if (!storedUser.notificationPreferences) {
-                    storedUser.notificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
-                }
-                // Save migrations immediately
-                users[activeEmail.toLowerCase()] = storedUser;
-                localStorage.setItem('star9ja_users', JSON.stringify(users));
-                
-                return storedUser;
+          const dbUser = await getUserFromFirestore(activeEmail);
+          if (dbUser) {
+            let migrated = false;
+            let updatedUser = { ...dbUser };
+            if (!updatedUser.transactions) {
+              updatedUser.transactions = [{
+                id: 'trx-init',
+                type: 'credit',
+                amount: 10000,
+                description: 'Welcome Bonus',
+                date: new Date().toISOString(),
+                status: 'success'
+              }];
+              migrated = true;
             }
+            if (!updatedUser.rewardStatus) {
+              updatedUser.rewardStatus = {
+                currentDay: 1,
+                lastClaimedTimestamp: 0
+              };
+              migrated = true;
+            }
+            if (!updatedUser.notificationPreferences) {
+              updatedUser.notificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
+              migrated = true;
+            }
+            
+            setUser(updatedUser);
+            setCurrentView('dashboard');
+            if (migrated) {
+              await saveUserToFirestore(updatedUser);
+            }
+          } else {
+            setCurrentView('login');
+          }
+        } else {
+          setCurrentView('register');
         }
-    } catch (e) {
-        console.error("Error restoring session", e);
-    }
-    return null;
-  });
+      } catch (err) {
+        console.error("Session initialization failed:", err);
+        setCurrentView('login');
+      } finally {
+        setSessionLoading(false);
+      }
+    };
+    initSession();
+  }, []);
 
-  // Helper to save user to local storage
-  const saveUserToStorage = (u: User) => {
-    const existingUsers = getStoredUsers();
-    existingUsers[u.email.toLowerCase()] = u;
-    localStorage.setItem('star9ja_users', JSON.stringify(existingUsers));
-  };
+  // Periodic Firestore Auto-refresh to handle Admin panel modifications
+  useEffect(() => {
+    if (currentView !== 'dashboard' || !user?.email) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const latestUser = await getUserFromFirestore(user.email);
+        if (latestUser) {
+          setUser((curr) => {
+            if (JSON.stringify(curr) !== JSON.stringify(latestUser)) {
+              return latestUser;
+            }
+            return curr;
+          });
+        }
+      } catch (e) {
+        console.error("Periodic user refresh error:", e);
+      }
+    }, 12000); // refresh every 12 seconds
+
+    return () => clearInterval(interval);
+  }, [currentView, user?.email]);
 
   // Check Loan Expiry and Auto-Debit
   useEffect(() => {
@@ -133,7 +166,7 @@ const App: React.FC = () => {
             alert(`Loan Repayment Successful: ₦${amountToRepay.toLocaleString()} has been debited from your balance.`);
         }
     }
-  }, [now, user]);
+  }, [now, user, saveUserToStorage]);
 
   // Check Imminent Deactivation Expiry and auto-deactivate
   useEffect(() => {
@@ -148,22 +181,10 @@ const App: React.FC = () => {
             saveUserToStorage(updatedUser);
         }
     }
-  }, [now, user]);
+  }, [now, user, saveUserToStorage]);
 
   const isDeactivated = user?.deactivationDate ? now > user.deactivationDate : false;
   const showImminentWarning = user?.imminentDeactivationExpiry && now < user.imminentDeactivationExpiry && !isDeactivated;
-
-  const [currentView, setCurrentView] = useState<'login' | 'register' | 'dashboard'>(() => {
-      const activeEmail = localStorage.getItem('star9ja_active_session') || localStorage.getItem('naira9ja_active_session');
-      const users = getStoredUsers();
-      if (activeEmail && users[activeEmail.toLowerCase()]) {
-          return 'dashboard';
-      }
-      if (Object.keys(users).length > 0) {
-          return 'login';
-      }
-      return 'register';
-  });
 
   const [activeTab, setActiveTab] = useState('home');
   const [darkMode, setDarkMode] = useState(false);
@@ -220,7 +241,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', onPopState);
   }, [activeTab, currentView, handleBack]);
 
-  const handleRegister = (name: string, email: string, referralCode?: string) => {
+  const handleRegister = async (name: string, email: string, referralCode?: string) => {
     const initialTransaction: Transaction = {
         id: `trx-${Date.now()}`,
         type: 'credit',
@@ -252,7 +273,7 @@ const App: React.FC = () => {
       rewardStatus: { currentDay: 1, lastClaimedTimestamp: 0 },
       notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES }
     };
-    saveUserToStorage(newUser);
+    await saveUserToStorage(newUser);
     localStorage.setItem('star9ja_active_session', email.toLowerCase());
     setUser(newUser);
     setCurrentView('dashboard');
@@ -260,36 +281,47 @@ const App: React.FC = () => {
     setShowWelcomeAd(true);
   };
 
-  const handleLogin = (email: string, name: string) => {
-    const existingUsers = getStoredUsers();
-    const storedUser = existingUsers[email.toLowerCase()];
-    if (storedUser) {
-        if (!storedUser.transactions) {
-            storedUser.transactions = [{
-                id: 'trx-init', type: 'credit', amount: 10000,
-                description: 'Welcome Bonus', date: new Date().toISOString(), status: 'success'
-            }];
-        }
-        if (!storedUser.rewardStatus) storedUser.rewardStatus = { currentDay: 1, lastClaimedTimestamp: 0 };
-        saveUserToStorage(storedUser);
-        setUser(storedUser);
-    } else {
-        const initialTransaction: Transaction = {
-            id: `trx-${Date.now()}`, type: 'credit', amount: 10000.00,
-            description: 'Welcome Bonus', date: new Date().toISOString(), status: 'success'
-        };
-        const loggedInUser: User = {
-            name: name || 'User', email, balance: 10000.00,
-            transactions: [initialTransaction],
-            rewardStatus: { currentDay: 1, lastClaimedTimestamp: 0 },
-            notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES }
-        };
-        setUser(loggedInUser);
-        saveUserToStorage(loggedInUser);
+  const handleLogin = async (email: string, name: string) => {
+    try {
+      const storedUser = await getUserFromFirestore(email);
+      if (storedUser) {
+          let migrated = false;
+          let updatedUser = { ...storedUser };
+          if (!updatedUser.transactions) {
+              updatedUser.transactions = [{
+                  id: 'trx-init', type: 'credit', amount: 10000,
+                  description: 'Welcome Bonus', date: new Date().toISOString(), status: 'success'
+              }];
+              migrated = true;
+          }
+          if (!updatedUser.rewardStatus) {
+            updatedUser.rewardStatus = { currentDay: 1, lastClaimedTimestamp: 0 };
+            migrated = true;
+          }
+          if (migrated) {
+            await saveUserToStorage(updatedUser);
+          } else {
+            setUser(updatedUser);
+          }
+      } else {
+          const initialTransaction: Transaction = {
+              id: `trx-${Date.now()}`, type: 'credit', amount: 10000.00,
+              description: 'Welcome Bonus', date: new Date().toISOString(), status: 'success'
+          };
+          const loggedInUser: User = {
+              name: name || 'User', email, balance: 10000.00,
+              transactions: [initialTransaction],
+              rewardStatus: { currentDay: 1, lastClaimedTimestamp: 0 },
+              notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES }
+          };
+          await saveUserToStorage(loggedInUser);
+      }
+      localStorage.setItem('star9ja_active_session', email.toLowerCase());
+      setCurrentView('dashboard');
+      setActiveTab('home');
+    } catch (e) {
+      console.error("Login trigger failed:", e);
     }
-    localStorage.setItem('star9ja_active_session', email.toLowerCase());
-    setCurrentView('dashboard');
-    setActiveTab('home');
   };
 
   const handleLogout = () => {
@@ -308,12 +340,15 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRefreshActiveUser = () => {
+  const handleRefreshActiveUser = async () => {
     if (user) {
-      const users = getStoredUsers();
-      const updatedUser = users[user.email.toLowerCase()];
-      if (updatedUser) {
-        setUser(updatedUser);
+      try {
+        const updatedUser = await getUserFromFirestore(user.email);
+        if (updatedUser) {
+          setUser(updatedUser);
+        }
+      } catch (err) {
+        console.error("Refresh active user error:", err);
       }
     }
   };
@@ -341,23 +376,6 @@ const App: React.FC = () => {
         };
         setUser(updatedUser);
         saveUserToStorage(updatedUser);
-    }
-  };
-
-  const handleInviteReward = () => {
-    if (user) {
-        const rewardAmount = 50000;
-        const newTransaction: Transaction = {
-            id: `trx-inv-${Date.now()}`, type: 'credit', amount: rewardAmount,
-            description: 'Invite & Earn Reward', date: new Date().toISOString(), status: 'success'
-        };
-        const updatedUser = {
-            ...user, balance: user.balance + rewardAmount,
-            transactions: [newTransaction, ...(user.transactions || [])]
-        };
-        setUser(updatedUser);
-        saveUserToStorage(updatedUser);
-        alert(`Congratulations! ₦${rewardAmount.toLocaleString()} has been added to your balance.`);
     }
   };
 
@@ -666,7 +684,7 @@ const App: React.FC = () => {
                   }} 
                 />
               ) : activeTab === 'invite_earn' ? (
-                <InviteEarn onReward={handleInviteReward} onBack={handleBack} />
+                <InviteEarn user={user!} onBack={handleBack} />
               ) : activeTab === 'imminent_payment' ? (
                 <ImminentPayment onBack={handleBack} />
               ) : activeTab === 'referral_dashboard' ? (

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Icons } from './Icons';
+import { getUserFromFirestore } from '../firebase';
 
 interface LoginProps {
   onLogin: (email: string, name: string) => void;
@@ -30,21 +31,26 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
       return;
     }
     
-    // Simulate API call / Local Validation
-    setTimeout(() => {
-      // Check if user exists in local storage
-      const existingUsersStr = localStorage.getItem('star9ja_users') || localStorage.getItem('naira9ja_users');
-      const existingUsers = existingUsersStr ? JSON.parse(existingUsersStr) : {};
-      const user = existingUsers[email.toLowerCase()];
-
-      if (user) {
-        onLogin(email, user.name);
-        setIsLoading(false);
-      } else {
-        // User not found logic
-        setError('Account not registered on this device.');
+    // Firestore-based Validation
+    const checkLogin = async () => {
+      try {
+        const user = await getUserFromFirestore(email);
+        if (user) {
+          onLogin(email, user.name);
+          setIsLoading(false);
+        } else {
+          setError('Account not registered. Please sign up first!');
+          setIsLoading(false);
+        }
+      } catch (e) {
+        console.error("Firebase Login Query Error:", e);
+        setError('Connection issue. Please check your network and try again.');
         setIsLoading(false);
       }
+    };
+    
+    setTimeout(() => {
+      checkLogin();
     }, 1000);
   };
 

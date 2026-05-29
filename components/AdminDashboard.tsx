@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
 import { User } from '../types';
+import { saveUserToFirestore, getAllUsersFromFirestore } from '../firebase';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -17,19 +18,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
   const [activeReceiptModalUrl, setActiveReceiptModalUrl] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Load all users from LocalStorage
-  const loadUsersFromStorage = () => {
+  // Load all users from Firebase Firestore
+  const loadUsersFromStorage = async () => {
     try {
-      const stored = localStorage.getItem('star9ja_users') || localStorage.getItem('naira9ja_users');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const list = Object.values(parsed) as User[];
-        setUsersList(list);
+      const cloudList = await getAllUsersFromFirestore();
+      if (cloudList && cloudList.length > 0) {
+        setUsersList(cloudList);
       } else {
         setUsersList([]);
       }
     } catch (e) {
-      console.error("Error reading users database", e);
+      console.error("Error reading users database from Firestore", e);
     }
   };
 
@@ -39,11 +38,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
 
   const saveUpdatedUsers = (updatedUsers: User[]) => {
     try {
-      const db: Record<string, User> = {};
       updatedUsers.forEach(u => {
-        db[u.email.toLowerCase()] = u;
+        // Asynchronously update to Firestore
+        saveUserToFirestore(u).catch((err) => {
+          console.error("Failed to sync updated user to firestore:", err);
+        });
       });
-      localStorage.setItem('star9ja_users', JSON.stringify(db));
       setUsersList(updatedUsers);
       
       // Notify parent app to reload the currently logged-in user state if they are affected

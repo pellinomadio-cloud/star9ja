@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile, balance, transactions, and status configuration",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "balance": { "type": "number" },
+        "profileImage": { "type": "string" },
+        "deactivationDate": { "type": "integer" },
+        "imminentDeactivationExpiry": { "type": "integer" },
+        "isVIP": { "type": "boolean" },
+        "vipBalance": { "type": "number" },
+        "loanBalance": { "type": "number" },
+        "loanExpiry": { "type": "integer" },
+        "isPMode": { "type": "boolean" },
+        "isVMode": { "type": "boolean" },
+        "lastTelegramClaimTimestamp": { "type": "integer" },
+        "dailyQuizCount": { "type": "integer" },
+        "lastQuizTimestamp": { "type": "integer" },
+        "activationStatus": { "type": "string", "enum": ["inactive", "pending", "active", "banned"] },
+        "activationPlan": { "type": "string", "enum": ["weekly", "monthly", "yearly"] },
+        "activationSubmitTime": { "type": "integer" },
+        "activationProofBase64": { "type": "string" },
+        "referredBy": { "type": "string" }
+      },
+      "required": ["name", "email", "balance"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of all user accounts indexed by user email address or user UID"
+    }
+  }
+}
