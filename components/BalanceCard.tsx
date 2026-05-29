@@ -4,9 +4,10 @@ import { Icons } from './Icons';
 interface BalanceCardProps {
   balance: number;
   onHistoryClick?: () => void;
+  onSecureClick?: () => void;
 }
 
-const BalanceCard: React.FC<BalanceCardProps> = ({ balance, onHistoryClick }) => {
+const BalanceCard: React.FC<BalanceCardProps> = ({ balance, onHistoryClick, onSecureClick }) => {
   const [showBalance, setShowBalance] = useState(true);
 
   const formatCurrency = (amount: number) => {
@@ -35,13 +36,16 @@ const BalanceCard: React.FC<BalanceCardProps> = ({ balance, onHistoryClick }) =>
         </div>
         
         {/* Glowing Blue Online/Verified Badge */}
-        <div className="flex items-center space-x-1.5 bg-cyan-950/40 px-2.5 py-1 rounded-full border border-cyan-400/40 shadow-[0_0_10px_rgba(6,182,212,0.2)]">
+        <button 
+          onClick={onSecureClick}
+          className="flex items-center space-x-1.5 bg-cyan-950/40 px-2.5 py-1 rounded-full border border-cyan-400/40 shadow-[0_0_10px_rgba(6,182,212,0.2)] cursor-pointer hover:bg-cyan-900/60 active:scale-95 transition-all text-left"
+        >
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
           </span>
-          <span className="text-[9px] font-black text-cyan-300 uppercase tracking-widest">SECURE</span>
-        </div>
+          <span className="text-[9px] font-black text-cyan-300 uppercase tracking-widest no-underline">SECURE</span>
+        </button>
       </div>
 
       <div className="flex items-baseline mb-6 relative z-10">

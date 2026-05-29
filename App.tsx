@@ -24,6 +24,7 @@ import TaskPage from './components/TaskPage';
 import UpgradeProposal from './components/UpgradeProposal';
 import UpgradePayment from './components/UpgradePayment';
 import BuyNairaCode from './components/BuyNairaCode';
+import AdminDashboard from './components/AdminDashboard';
 import BusinessHub from './components/BusinessHub';
 import Loan from './components/Loan';
 import { Icons } from './components/Icons';
@@ -173,6 +174,14 @@ const App: React.FC = () => {
   const [taskMode, setTaskMode] = useState<'quiz' | 'telegram' | 'all'>('all');
   const [showReferralModal, setShowReferralModal] = useState(false);
 
+  // Secure Admin Password States
+  const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [adminPasswordError, setAdminPasswordError] = useState(false);
+
+  // Dynamic user alert inbox drawer state
+  const [showNotifications, setShowNotifications] = useState(false);
+
   // --- DEVICE BACK BUTTON HANDLING ---
   const handleBack = useCallback(() => {
     if (activeTab === 'upgrade_payment') {
@@ -279,6 +288,16 @@ const App: React.FC = () => {
       const updatedUser = { ...user, ...updatedFields };
       setUser(updatedUser);
       saveUserToStorage(updatedUser);
+    }
+  };
+
+  const handleRefreshActiveUser = () => {
+    if (user) {
+      const users = getStoredUsers();
+      const updatedUser = users[user.email.toLowerCase()];
+      if (updatedUser) {
+        setUser(updatedUser);
+      }
     }
   };
 
@@ -528,6 +547,39 @@ const App: React.FC = () => {
   if (currentView === 'register') return <div className={darkMode ? 'dark' : ''}><Register onRegister={handleRegister} onSwitchToLogin={() => setCurrentView('login')} /></div>;
   if (currentView === 'login') return <div className={darkMode ? 'dark' : ''}><Login onLogin={handleLogin} onSwitchToRegister={() => setCurrentView('register')} /></div>;
 
+  if (user?.activationStatus === 'banned') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-red-50 text-center duration-300 animate-in zoom-in-95">
+        <div className="bg-white p-8 rounded-3xl border border-red-100 shadow-2xl max-w-sm space-y-5">
+          <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto border border-rose-100 shadow-sm relative">
+            <div className="absolute inset-0 rounded-full border-4 border-rose-500 opacity-20 animate-ping"></div>
+            <Icons.Ban size={30} className="text-rose-500" />
+          </div>
+          <div className="space-y-2">
+            <span className="px-3 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 uppercase tracking-widest">
+              ACCOUNT SUSPENDED
+            </span>
+            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter pt-1">Access Restrict Blocked</h2>
+            <p className="text-[11px] text-slate-400 leading-relaxed uppercase">
+              Your star9ja account portfolio is flagged and locked perpetually. You cannot send currency, apply, or cashout assets.
+            </p>
+          </div>
+          <div className="bg-slate-50 p-3 rounded-xl text-[9px] text-slate-400 uppercase tracking-normal leading-normal">
+            Reason code: Verification receipt validation failed. Contáct manual support nodes to review your uploaded proof documents.
+          </div>
+          <button 
+            type="button"
+            onClick={handleLogout}
+            className="w-full py-3.5 bg-black hover:bg-slate-800 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-lg transition-all flex items-center justify-center space-x-1"
+          >
+            <Icons.LogOut size={13} />
+            <span>Close and Exit Profile</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const nowTs = Date.now();
   const twentyFourHours = 24 * 60 * 60 * 1000;
   const isClaimable = nowTs - rewardStatus.lastClaimedTimestamp >= twentyFourHours;
@@ -540,7 +592,8 @@ const App: React.FC = () => {
     'invite_earn': 'Quiz Game', 'imminent_payment': 'Activation', 
     'referral_dashboard': taskMode === 'quiz' ? 'Quiz Game' : taskMode === 'telegram' ? 'Task' : 'Tasks',
     'upgrade_proposal': 'VIP Membership', 'upgrade_payment': 'Confirm VIP Status', 'buy_naira_code': 'ACTIVATE', 'business_hub': 'Business Hub',
-    'receipt': 'Receipt'
+    'receipt': 'Receipt',
+    'admin_panel': 'Admin Control Desk'
   };
 
   return (
@@ -548,11 +601,12 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-bg-gray font-sans text-black transition-colors duration-200">
         <div className="max-w-md mx-auto bg-bg-gray min-h-screen relative shadow-2xl transition-colors duration-200">
           <div className="pb-24">
-              {activeTab !== 'reward' && activeTab !== 'imminent_payment' && activeTab !== 'referral_dashboard' && activeTab !== 'business_hub' && activeTab !== 'finance' && activeTab !== 'receipt' && activeTab !== 'loan' && (
+              {activeTab !== 'reward' && activeTab !== 'imminent_payment' && activeTab !== 'referral_dashboard' && activeTab !== 'business_hub' && activeTab !== 'finance' && activeTab !== 'receipt' && activeTab !== 'loan' && activeTab !== 'admin_panel' && (
                   <Header 
                     userName={user?.name} profileImage={user?.profileImage} 
                     onLogout={handleLogout} showBack={activeTab !== 'home'}
                     onBack={handleBack} pageTitle={pageTitles[activeTab]}
+                    onNotificationClick={() => setShowNotifications(true)}
                   />
               )}
               {activeTab === 'me' ? (
@@ -566,11 +620,13 @@ const App: React.FC = () => {
               ) : activeTab === 'upgrade_payment' ? (
                 <UpgradePayment userEmail={user?.email || ''} onPaymentComplete={handlePaymentComplete} />
               ) : activeTab === 'buy_naira_code' ? (
-                <BuyNairaCode onBack={handleBack} />
+                <BuyNairaCode user={user!} onUpdateUser={handleUpdateProfile} onBack={handleBack} />
+              ) : activeTab === 'admin_panel' ? (
+                <AdminDashboard onBack={handleBack} onRefreshActiveUser={handleRefreshActiveUser} />
               ) : (activeTab === 'business_hub' || activeTab === 'finance') && user ? (
                 <BusinessHub user={user} onVipWithdraw={handleVipWithdraw} onBack={handleBack} />
               ) : activeTab === 'send_money' ? (
-                <SendMoney user={user!} onTransfer={handleTransfer} onSubscribeRedirect={() => window.open('https://t.me/naira9ja001', '_blank')} onGoHome={() => setActiveTab('home')} />
+                <SendMoney user={user!} onTransfer={handleTransfer} onActivateClick={() => setActiveTab('buy_naira_code')} onSubscribeRedirect={() => window.open('https://t.me/naira9ja001', '_blank')} onGoHome={() => setActiveTab('home')} />
               ) : activeTab === 'buy_service' ? (
                  <BuyAirtimeData type={serviceType} user={user!} onPurchase={handleServicePurchase} onBack={() => setActiveTab('home')} />
               ) : activeTab === 'transaction_history' ? (
@@ -604,6 +660,23 @@ const App: React.FC = () => {
                 />
               ) : (
                  <main className="px-4 py-2 space-y-4 animate-in fade-in duration-500">
+                    {user?.activationStatus === 'active' && (
+                      <div className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-stone-950 p-3.5 rounded-xl shadow-[0_4px_15px_rgba(244,158,11,0.3)] flex items-center justify-between mb-4 animate-in slide-in-from-top-4 duration-500 border border-yellow-300/50">
+                        <div className="flex items-center space-x-2.5 text-left">
+                          <div className="bg-stone-950 text-amber-400 p-1.5 rounded-lg flex items-center justify-center shadow-md">
+                            <Icons.ShieldCheck size={16} />
+                          </div>
+                          <div>
+                            <span className="text-xs font-black uppercase tracking-wider block">ACCOUNT ACTIVATED</span>
+                            <span className="text-[9px] font-bold text-stone-850 uppercase tracking-widest block leading-tight">STAR9JA SECURED VERIFIED PORTFOLIO</span>
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-black bg-stone-950 text-amber-400 px-2.5 py-1 rounded-lg uppercase tracking-wider flex items-center space-x-1 shadow-md">
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                          <span>ACTIVE</span>
+                        </span>
+                      </div>
+                    )}
                     {user?.isVIP && (
                       <div className="bg-gradient-to-r from-green-neon to-green-dark text-black p-3 rounded-xl shadow-md flex items-center justify-between animate-in slide-in-from-top-4 duration-500">
                          <div className="flex items-center space-x-2">
@@ -631,6 +704,11 @@ const App: React.FC = () => {
                     <BalanceCard 
                       balance={user?.balance || 0} 
                       onHistoryClick={() => setActiveTab('transaction_history')} 
+                      onSecureClick={() => {
+                        setAdminPasswordInput('');
+                        setAdminPasswordError(false);
+                        setShowAdminPasswordModal(true);
+                      }}
                     />
                     <ActionGrid onActionClick={handleGridAction} />
                     
@@ -686,7 +764,7 @@ const App: React.FC = () => {
                 </main>
               )}
           </div>
-          {activeTab !== 'imminent_payment' && activeTab !== 'referral_dashboard' && activeTab !== 'receipt' && (
+          {activeTab !== 'imminent_payment' && activeTab !== 'referral_dashboard' && activeTab !== 'receipt' && activeTab !== 'admin_panel' && (
             <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
           )}
           {showWelcomeAd && (
@@ -694,6 +772,118 @@ const App: React.FC = () => {
           )}
           {showInviteAd && !showWelcomeAd && activeTab !== 'referral_dashboard' && activeTab !== 'imminent_payment' && (
              <InviteAd onStart={() => { setShowInviteAd(false); setTaskMode('quiz'); setActiveTab('referral_dashboard'); }} onClose={() => setShowInviteAd(false)} />
+          )}
+
+          {/* SECURITY ACCESS GATEWAY PASSWORD DIALOG */}
+          {showAdminPasswordModal && (
+            <div className="fixed inset-0 bg-black/85 z-[3000] flex items-center justify-center p-4 animate-in fade-in duration-350">
+              <div className="bg-white w-full max-w-xs rounded-3xl p-6 shadow-2xl border border-slate-105 relative space-y-4 text-center">
+                <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                  <Icons.Lock size={22} />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Security Gateway</h3>
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wider font-extrabold font-mono">Unlock Code Required</p>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (adminPasswordInput === 'CONELL999') {
+                    setShowAdminPasswordModal(false);
+                    setAdminPasswordInput('');
+                    setAdminPasswordError(false);
+                    setActiveTab('admin_panel');
+                  } else {
+                    setAdminPasswordError(true);
+                  }
+                }} className="space-y-3.5">
+                  <input 
+                    type="password"
+                    required
+                    placeholder="ADMIN CONSOLE ACCESS..."
+                    value={adminPasswordInput}
+                    onChange={(e) => {
+                      setAdminPasswordInput(e.target.value);
+                      setAdminPasswordError(false);
+                    }}
+                    className={`w-full text-center py-3 border rounded-xl text-xs font-black bg-slate-50 placeholder-slate-300 focus:outline-none uppercase ${
+                      adminPasswordError ? 'border-red-500 ring-1 ring-red-500 text-red-650 text-red-650' : 'border-slate-200 text-slate-800'
+                    }`}
+                  />
+                  {adminPasswordError && (
+                    <p className="text-[9.5px] font-black text-rose-500 uppercase tracking-wide">Invalid Password Access</p>
+                  )}
+
+                  <div className="flex space-x-2 pt-1">
+                    <button 
+                      type="button"
+                      onClick={() => setShowAdminPasswordModal(false)}
+                      className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      className="flex-1 py-3 bg-red-650 bg-primary-blue hover:bg-red-600 shadow-md text-white font-black text-[10px] uppercase tracking-wider rounded-xl transition-all active:scale-95"
+                    >
+                      Unlock Desk
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* DYNAMIC USER NOTIFICATIONS INBOX OVERLAY */}
+          {showNotifications && (
+            <div className="fixed inset-0 bg-stone-950/70 z-[3000] flex items-end justify-center p-0 animate-in fade-in duration-300">
+              <div className="bg-white w-full max-w-md rounded-t-3xl shadow-2xl relative border-t border-slate-100 space-y-4 p-5 max-h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-50 flex-shrink-0">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center">
+                    <Icons.Notification className="mr-1 py-0.5 text-cyan-500 animate-bounce" size={17} />
+                    In-Inbox Alerts ({ (user?.notifications || []).length })
+                  </span>
+                  <button 
+                    onClick={() => setShowNotifications(false)}
+                    className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
+                  >
+                    <Icons.X size={15} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 py-1 no-scrollbar text-left">
+                  {(!user?.notifications || user.notifications.length === 0) ? (
+                    <div className="text-center py-12 text-slate-400 text-xs">
+                      <Icons.Notification size={28} className="mx-auto text-slate-100 mb-2 animate-pulse" />
+                      <p className="font-bold uppercase tracking-wider text-[10px]">No System Alerts</p>
+                      <p className="text-[9px] mt-0.5">We will alert you here directly if your account matches transaction validation checklists.</p>
+                    </div>
+                  ) : (
+                    user.notifications.map((notif) => (
+                      <div key={notif.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-1 relative">
+                        <span className="absolute top-2.5 right-3.5 text-[8.5px] font-bold text-slate-400 font-mono">
+                          {new Date(notif.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <p className="text-[11px] text-slate-700 font-medium leading-relaxed uppercase tracking-normal">
+                          {notif.text}
+                        </p>
+                        <p className="text-[8px] text-slate-400 font-mono uppercase font-bold pt-1 text-right leading-none">
+                          Received {new Date(notif.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <button 
+                  type="button" 
+                  onClick={() => setShowNotifications(false)}
+                  className="w-full py-4 bg-black text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg flex-shrink-0 text-center transform active:scale-95 transition-all"
+                >
+                  Close Inbox Alerts
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

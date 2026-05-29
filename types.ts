@@ -62,6 +62,20 @@ export interface User {
   lastTelegramClaimTimestamp?: number;
   dailyQuizCount?: number;
   lastQuizTimestamp?: number;
+  
+  // Account Activation States
+  activationStatus?: 'inactive' | 'pending' | 'active' | 'banned';
+  activationPlan?: 'weekly' | 'monthly' | 'yearly';
+  activationSubmitTime?: number;
+  activationProofBase64?: string;
+  
+  // Custom notifications inbox
+  notifications?: Array<{
+    id: string;
+    text: string;
+    date: string;
+    read?: boolean;
+  }>;
 }
 
 export interface Plan {

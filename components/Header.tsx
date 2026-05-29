@@ -9,6 +9,7 @@ interface HeaderProps {
   showBack?: boolean;
   onBack?: () => void;
   pageTitle?: string;
+  onNotificationClick?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -17,7 +18,8 @@ const Header: React.FC<HeaderProps> = ({
   onLogout,
   showBack = false,
   onBack,
-  pageTitle
+  pageTitle,
+  onNotificationClick
 }) => {
   const initials = userName.length >= 2 ? userName.substring(0, 2).toUpperCase() : userName.substring(0, 1).toUpperCase();
   const firstName = userName.split(' ')[0];
@@ -54,7 +56,10 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
         <div className="flex items-center space-x-4 text-gray-400">
-          <button className="relative p-1 hover:text-red-500 transition-colors">
+          <button 
+            onClick={onNotificationClick}
+            className="relative p-1 hover:text-red-500 transition-colors cursor-pointer"
+          >
             <Icons.Notification size={22} className="text-gray-600" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.9)] animate-pulse"></span>
           </button>
