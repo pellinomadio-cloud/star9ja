@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
 
 interface RegisterProps {
-  onRegister: (name: string, email: string, referralCode?: string) => void;
+  onRegister: (name: string, email: string, referralCode?: string) => Promise<void> | void;
   onSwitchToLogin: () => void;
 }
 
@@ -34,7 +34,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin }) => {
     setPassword(val);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -45,11 +45,13 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin }) => {
 
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      onRegister(name, email, referralCode);
+    try {
+      await onRegister(name, email, referralCode);
+    } catch (err: any) {
+      setError(err?.message || 'Error occurred while creating account');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

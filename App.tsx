@@ -242,6 +242,16 @@ const App: React.FC = () => {
   }, [activeTab, currentView, handleBack]);
 
   const handleRegister = async (name: string, email: string, referralCode?: string) => {
+    if (!email) {
+      throw new Error("Email address is required.");
+    }
+
+    // Check if user already exists to prevent duplicate accounts
+    const existingDoc = await getUserFromFirestore(email);
+    if (existingDoc) {
+      throw new Error("This email is already registered. Please login instead.");
+    }
+
     const initialTransaction: Transaction = {
         id: `trx-${Date.now()}`,
         type: 'credit',
