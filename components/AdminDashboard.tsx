@@ -18,6 +18,85 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
   const [activeReceiptModalUrl, setActiveReceiptModalUrl] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
+  // User Account Portfolio Editing States
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editBalance, setEditBalance] = useState<number>(0);
+  const [editIsVIP, setEditIsVIP] = useState(false);
+  const [editVipBalance, setEditVipBalance] = useState<number>(0);
+  const [editLoanBalance, setEditLoanBalance] = useState<number>(0);
+  const [editIsPMode, setEditIsPMode] = useState(false);
+  const [editIsVMode, setEditIsVMode] = useState(false);
+  const [editActivationStatus, setEditActivationStatus] = useState<User['activationStatus']>('inactive');
+  const [editActivationPlan, setEditActivationPlan] = useState<User['activationPlan']>('weekly');
+  const [hasImminentDeactivation, setHasImminentDeactivation] = useState(false);
+  const [hasDeactivation, setHasDeactivation] = useState(false);
+
+  const handleOpenEdit = (user: User) => {
+    setSelectedUserForEdit(user);
+    setEditName(user.name);
+    setEditBalance(user.balance);
+    setEditIsVIP(!!user.isVIP);
+    setEditVipBalance(user.vipBalance || 0);
+    setEditLoanBalance(user.loanBalance || 0);
+    setEditIsPMode(!!user.isPMode);
+    setEditIsVMode(!!user.isVMode);
+    setEditActivationStatus(user.activationStatus || 'inactive');
+    setEditActivationPlan(user.activationPlan || 'weekly');
+    setHasImminentDeactivation(!!user.imminentDeactivationExpiry);
+    setHasDeactivation(!!user.deactivationDate);
+  };
+
+  const handleSaveUserEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserForEdit) return;
+
+    const updated = usersList.map(u => {
+      if (u.email.toLowerCase() === selectedUserForEdit.email.toLowerCase()) {
+        const updatedUser: User = {
+          ...u,
+          name: editName.trim() || u.name,
+          balance: Number(editBalance),
+          isVIP: editIsVIP,
+          vipBalance: Number(editVipBalance),
+          loanBalance: Number(editLoanBalance),
+          isPMode: editIsPMode,
+          isVMode: editIsVMode,
+          activationStatus: editActivationStatus,
+        };
+
+        if (editActivationStatus !== 'inactive') {
+          updatedUser.activationPlan = editActivationPlan;
+        } else {
+          delete updatedUser.activationPlan;
+        }
+
+        // Imminent deactivation handler
+        if (!hasImminentDeactivation) {
+          delete updatedUser.imminentDeactivationExpiry;
+        } else if (!u.imminentDeactivationExpiry) {
+          // Set to 20 minutes from now if newly enabled
+          updatedUser.imminentDeactivationExpiry = Date.now() + 20 * 60 * 1000;
+        }
+
+        // Deactivation handling
+        if (!hasDeactivation) {
+          delete updatedUser.deactivationDate;
+        } else if (!u.deactivationDate) {
+          // Marked as deactivated immediately
+          updatedUser.deactivationDate = Date.now() - 1000;
+        }
+
+        return updatedUser;
+      }
+      return u;
+    });
+
+    saveUpdatedUsers(updated);
+    setSelectedUserForEdit(null);
+    triggerMessage("User portfolio modified and saved to live secure database!", "success");
+  };
+
   // Load all users from Firebase Firestore
   const loadUsersFromStorage = async () => {
     try {
@@ -420,6 +499,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
                 {/* Main generic actions */}
                 <div className="pt-2 border-t border-slate-50 flex flex-wrap gap-2 items-center">
                   <button 
+                    onClick={() => handleOpenEdit(item)}
+                    className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white font-extrabold text-[9px] uppercase tracking-widest rounded-lg flex items-center space-x-1 transition-all active:scale-95"
+                  >
+                    <Icons.Edit size={11} />
+                    <span>Edit Details</span>
+                  </button>
+
+                  <button 
+                    type="button"
                     onClick={() => {
                       setSelectedUserForNotify(item);
                       setNotifText('');
@@ -431,6 +519,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
                   </button>
 
                   <button 
+                    type="button"
                     onClick={() => handleToggleBan(item.email, isUserBanned)}
                     className={`px-3 py-1.5 font-extrabold text-[9px] uppercase tracking-widest rounded-lg flex items-center space-x-1 transition-all active:scale-95 text-white ${
                       isUserBanned 
@@ -517,6 +606,202 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
                 >
                   <Icons.Send size={11} />
                   <span>Deliver Alert</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT USER ACCOUNT PORTFOLIO MODAL */}
+      {selectedUserForEdit && (
+        <div className="fixed inset-0 bg-stone-950/70 z-[1000] flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto text-slate-800">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div className="text-left">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Manage Portfolio</span>
+                <span className="text-sm font-black text-slate-800 uppercase truncate block max-w-[200px]">{selectedUserForEdit.name}</span>
+                <span className="text-[9px] font-mono text-slate-500 truncate block max-w-[200px]">{selectedUserForEdit.email}</span>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSelectedUserForEdit(null)}
+                className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors"
+              >
+                <Icons.X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUserEdit} className="space-y-4 text-left">
+              {/* Account Holder Name */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Full Name</label>
+                <input 
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
+                />
+              </div>
+
+              {/* Balances Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Main Balance (₦)</label>
+                  <input 
+                    type="number"
+                    required
+                    value={editBalance}
+                    onChange={(e) => setEditBalance(Number(e.target.value))}
+                    className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">VIP Balance (₦)</label>
+                  <input 
+                    type="number"
+                    required
+                    value={editVipBalance}
+                    onChange={(e) => setEditVipBalance(Number(e.target.value))}
+                    className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Loan Balance */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Loan Balance (₦)</label>
+                <input 
+                  type="number"
+                  required
+                  value={editLoanBalance}
+                  onChange={(e) => setEditLoanBalance(Number(e.target.value))}
+                  className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
+                />
+              </div>
+
+              {/* Status Selectors */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Activation Status</label>
+                  <select
+                    value={editActivationStatus}
+                    onChange={(e) => setEditActivationStatus(e.target.value as any)}
+                    className="w-full text-xs text-slate-800 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-red-500 bg-white font-semibold"
+                  >
+                    <option value="inactive">inactive</option>
+                    <option value="pending">pending</option>
+                    <option value="active">active</option>
+                    <option value="banned">banned</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Activation Plan</label>
+                  <select
+                    value={editActivationPlan}
+                    onChange={(e) => setEditActivationPlan(e.target.value as any)}
+                    disabled={editActivationStatus === 'inactive'}
+                    className="w-full text-xs text-slate-800 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-red-500 bg-white disabled:bg-slate-50 disabled:text-slate-400 font-semibold"
+                  >
+                    <option value="weekly">weekly (N10k)</option>
+                    <option value="monthly">monthly (N30k)</option>
+                    <option value="yearly">yearly (N100k)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Modes & Checkboxes Container */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-3">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status & Security Modes</span>
+                
+                {/* VIP Membership Mode */}
+                <label className="flex items-start space-x-2.5 cursor-pointer select-none">
+                  <input 
+                    type="checkbox"
+                    checked={editIsVIP}
+                    onChange={(e) => setEditIsVIP(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block leading-tight">VIP Status Vault</span>
+                    <span className="text-[8.5px] text-slate-400 font-medium">Activates VIP interest yields and VIP-specific channels</span>
+                  </div>
+                </label>
+
+                {/* PMode Status */}
+                <label className="flex items-start space-x-2.5 cursor-pointer select-none">
+                  <input 
+                    type="checkbox"
+                    checked={editIsPMode}
+                    onChange={(e) => setEditIsPMode(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block leading-tight">Pay Mode (PMode)</span>
+                    <span className="text-[8.5px] text-slate-400 font-medium font-semibold">Controls advanced configurations for custom checkouts</span>
+                  </div>
+                </label>
+
+                {/* VMode Status */}
+                <label className="flex items-start space-x-2.5 cursor-pointer select-none">
+                  <input 
+                    type="checkbox"
+                    checked={editIsVMode}
+                    onChange={(e) => setEditIsVMode(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block leading-tight">Verification Mode (VMode)</span>
+                    <span className="text-[8.5px] text-slate-400 font-medium">Enforces system identity and security screening</span>
+                  </div>
+                </label>
+
+                {/* Imminent Deactivation Warning Check */}
+                <label className="flex items-start space-x-2.5 cursor-pointer select-none">
+                  <input 
+                    type="checkbox"
+                    checked={hasImminentDeactivation}
+                    onChange={(e) => setHasImminentDeactivation(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block leading-tight">Force Imminent Activation screen</span>
+                    <span className="text-[8.5px] text-slate-400 font-medium">Triggers the mandatory ₦10,000 activation payment requirements</span>
+                  </div>
+                </label>
+
+                {/* Deactivation Trigger */}
+                <label className="flex items-start space-x-2.5 cursor-pointer">
+                  <input 
+                    type="checkbox"
+                    checked={hasDeactivation}
+                    onChange={(e) => setHasDeactivation(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block leading-tight">Force Complete Account Deactivation</span>
+                    <span className="text-[8.5px] text-slate-400 font-medium">Suspends the portfolio, requiring service reactivation checkouts</span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Actions Grid */}
+              <div className="flex space-x-2 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setSelectedUserForEdit(null)}
+                  className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 font-black text-[10px] uppercase tracking-wider rounded-xl transition-colors text-center"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 shadow-md text-white font-black text-[10px] uppercase tracking-wider rounded-xl transition-all active:scale-95 flex items-center justify-center space-x-1"
+                >
+                  <Icons.CheckCircle size={12} />
+                  <span>Save Portfolio</span>
                 </button>
               </div>
             </form>

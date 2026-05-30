@@ -52,7 +52,8 @@ import {
   Ban,
   Zap,
   Radio,
-  Scan
+  Scan,
+  Edit
 } from 'lucide-react';
 
 // Exporting icons for easy import elsewhere
@@ -114,5 +115,6 @@ export const Icons = {
   Ban,
   Zap,
   Radio,
-  Scan
+  Scan,
+  Edit
 };
