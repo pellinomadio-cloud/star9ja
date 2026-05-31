@@ -87,3 +87,10 @@ export interface Plan {
   duration: string;
   recommended?: boolean;
 }
+
+export interface SystemSettings {
+  accountNumber: string;
+  bankName: string;
+  accountName: string;
+}
+

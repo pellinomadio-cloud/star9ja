@@ -19,7 +19,7 @@ const TelegramAd: React.FC<TelegramAdProps> = ({ onJoin, onContinue }) => {
              <p className="text-gray-500 mt-2 text-sm leading-relaxed">
                 Stay updated! Join our official Telegram channel for exclusive rewards, updates, and support.
              </p>
-             <p className="text-black font-bold mt-1">@star9ja001</p>
+              <p className="text-black font-bold mt-1">@star9ja1</p>
         </div>
 
         <div className="space-y-3">

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Icons } from './Icons';
-import { User } from '../types';
+import { User, SystemSettings } from '../types';
 
 interface BuyNairaCodeProps {
   user: User;
   onUpdateUser: (fields: Partial<User>) => void;
   onBack: () => void;
+  systemSettings: SystemSettings | null;
 }
 
 const PLANS = [
@@ -43,7 +44,7 @@ const PLANS = [
   }
 ];
 
-const BuyNairaCode: React.FC<BuyNairaCodeProps> = ({ user, onUpdateUser, onBack }) => {
+const BuyNairaCode: React.FC<BuyNairaCodeProps> = ({ user, onUpdateUser, onBack, systemSettings }) => {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('monthly');
   const [step, setStep] = useState<'plan_select' | 'payment_upload'>(
     user.activationStatus === 'pending' ? 'payment_upload' : 'plan_select'
@@ -55,7 +56,13 @@ const BuyNairaCode: React.FC<BuyNairaCodeProps> = ({ user, onUpdateUser, onBack 
   const [submitting, setSubmitting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
-  const accountNumber = "5276179936";
+  const activeBank = systemSettings || {
+    accountNumber: "5276179936",
+    bankName: "Moniepoint MFB",
+    accountName: "Awwal Onimsi Abdulsalam"
+  };
+
+  const accountNumber = activeBank.accountNumber;
   const selectedPlan = PLANS.find(p => p.id === selectedPlanId) || PLANS[1];
 
   const handleCopy = () => {
@@ -420,12 +427,12 @@ const BuyNairaCode: React.FC<BuyNairaCodeProps> = ({ user, onUpdateUser, onBack 
             
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wide">Bank Name</span>
-              <span className="font-black text-slate-800 uppercase">Moniepoint MFB</span>
+              <span className="font-black text-slate-800 uppercase">{activeBank.bankName}</span>
             </div>
 
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wide">Account Name</span>
-              <span className="font-black text-slate-800 uppercase text-right tracking-tight text-[11px]">Awwal Onimsi Abdulsalam</span>
+              <span className="font-black text-slate-800 uppercase text-right tracking-tight text-[11px]">{activeBank.accountName}</span>
             </div>
           </div>
         </div>

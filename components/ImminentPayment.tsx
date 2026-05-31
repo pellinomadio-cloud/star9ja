@@ -1,26 +1,29 @@
 
 import React, { useState } from 'react';
 import { Icons } from './Icons';
+import { SystemSettings } from '../types';
 
 interface ImminentPaymentProps {
   onBack: () => void;
+  systemSettings: SystemSettings | null;
 }
 
-const ImminentPayment: React.FC<ImminentPaymentProps> = ({ onBack }) => {
+const ImminentPayment: React.FC<ImminentPaymentProps> = ({ onBack, systemSettings }) => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'failed'>('idle');
   const [paymentProof, setPaymentProof] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const activeBank = systemSettings || {
+    accountNumber: "5276179936",
+    bankName: "Moniepoint MFB",
+    accountName: "Awwal Onimsi Abdulsalam"
+  };
 
   const handlePayNow = () => {
-    const accountNumber = "5276179936";
+    const accountNumber = activeBank.accountNumber;
     navigator.clipboard.writeText(accountNumber);
-    alert(
-      `ACTIVATION DETAILS\n\n` +
-      `Bank: Moniepoint MFB\n` +
-      `Account Number: ${accountNumber}\n` +
-      `Account Name: Awwal Onimsi Abdulsalam\n\n` +
-      `AMOUNT: ₦10,000\n\n` +
-      `Account number copied! Make payment and click "Verify" below.`
-    );
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,24 +81,21 @@ const ImminentPayment: React.FC<ImminentPaymentProps> = ({ onBack }) => {
         <div className="grid grid-cols-2 gap-4 text-left border-t border-gray-800 pt-4">
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Bank Name</p>
-            <p className="text-sm font-black text-white">Moniepoint MFB</p>
+            <p className="text-sm font-black text-white">{activeBank.bankName}</p>
           </div>
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Account Name</p>
-            <p className="text-sm font-black text-white">Awwal Onimsi Abdulsalam</p>
+            <p className="text-sm font-black text-white">{activeBank.accountName}</p>
           </div>
           <div className="col-span-2 space-y-1">
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Account Number</p>
             <div className="flex items-center justify-between bg-black p-3 rounded-xl border border-gray-800">
-              <p className="text-xl font-black text-gold tracking-wider">5276179936</p>
+              <p className="text-xl font-black text-gold tracking-wider">{activeBank.accountNumber}</p>
               <button 
-                onClick={() => {
-                  navigator.clipboard.writeText("5276179936");
-                  alert("Account number copied to clipboard!");
-                }}
-                className="p-2 bg-gold/10 text-gold rounded-lg active:scale-90 transition-transform"
+                onClick={handlePayNow}
+                className="p-2 bg-gold/10 text-gold rounded-lg active:scale-90 transition-transform flex items-center space-x-1"
               >
-                <Icons.Copy size={18} />
+                {copied ? <Icons.CheckCircle size={18} className="text-green-400" /> : <Icons.Copy size={18} />}
               </button>
             </div>
           </div>

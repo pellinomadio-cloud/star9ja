@@ -28,8 +28,15 @@ import AdminDashboard from './components/AdminDashboard';
 import BusinessHub from './components/BusinessHub';
 import Loan from './components/Loan';
 import { Icons } from './components/Icons';
-import { User, Transaction, RewardStatus } from './types';
-import { saveUserToFirestore, getUserFromFirestore, syncLocalToFirestore, syncFirestoreToLocal } from './firebase';
+import { User, Transaction, RewardStatus, SystemSettings } from './types';
+import { 
+  saveUserToFirestore, 
+  getUserFromFirestore, 
+  syncLocalToFirestore, 
+  syncFirestoreToLocal,
+  getPaymentSettingsFromFirestore,
+  savePaymentSettingsToFirestore
+} from './firebase';
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
   withdrawals: true,
@@ -53,6 +60,30 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'login' | 'register' | 'dashboard'>('register');
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+
+  // Global system settings loader
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getPaymentSettingsFromFirestore();
+        setSystemSettings(settings);
+      } catch (err) {
+        console.error("Error loading system settings on mount:", err);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleUpdateSystemSettings = useCallback(async (newSettings: SystemSettings) => {
+    try {
+      await savePaymentSettingsToFirestore(newSettings);
+      setSystemSettings(newSettings);
+    } catch (err) {
+      console.error("Error saving global system settings:", err);
+      throw err;
+    }
+  }, []);
 
   // Helper to update state and sync changes directly to Firestore
   const saveUserToStorage = useCallback(async (u: User) => {
@@ -405,7 +436,7 @@ const App: React.FC = () => {
     } else if (id === 'bank') {
         setActiveTab('send_money');
     } else if (id === 'vip') {
-        window.open('https://t.me/naira9ja001', '_blank');
+        window.open('https://t.me/star9ja1', '_blank');
     } else if (id === 'invite') {
         setTaskMode('quiz');
         setActiveTab('referral_dashboard');
@@ -665,15 +696,15 @@ const App: React.FC = () => {
               ) : activeTab === 'upgrade_proposal' ? (
                 <UpgradeProposal onProceed={() => setActiveTab('upgrade_payment')} onBack={handleBack} />
               ) : activeTab === 'upgrade_payment' ? (
-                <UpgradePayment userEmail={user?.email || ''} onPaymentComplete={handlePaymentComplete} />
+                <UpgradePayment userEmail={user?.email || ''} onPaymentComplete={handlePaymentComplete} systemSettings={systemSettings} />
               ) : activeTab === 'buy_naira_code' ? (
-                <BuyNairaCode user={user!} onUpdateUser={handleUpdateProfile} onBack={handleBack} />
+                <BuyNairaCode user={user!} onUpdateUser={handleUpdateProfile} onBack={handleBack} systemSettings={systemSettings} />
               ) : activeTab === 'admin_panel' ? (
-                <AdminDashboard onBack={handleBack} onRefreshActiveUser={handleRefreshActiveUser} />
+                <AdminDashboard onBack={handleBack} onRefreshActiveUser={handleRefreshActiveUser} systemSettings={systemSettings} onUpdateSystemSettings={handleUpdateSystemSettings} />
               ) : (activeTab === 'business_hub' || activeTab === 'finance') && user ? (
                 <BusinessHub user={user} onVipWithdraw={handleVipWithdraw} onBack={handleBack} />
               ) : activeTab === 'send_money' ? (
-                <SendMoney user={user!} onTransfer={handleTransfer} onActivateClick={() => setActiveTab('buy_naira_code')} onSubscribeRedirect={() => window.open('https://t.me/naira9ja001', '_blank')} onGoHome={() => setActiveTab('home')} />
+                <SendMoney user={user!} onTransfer={handleTransfer} onActivateClick={() => setActiveTab('buy_naira_code')} onSubscribeRedirect={() => window.open('https://t.me/star9ja1', '_blank')} onGoHome={() => setActiveTab('home')} />
               ) : activeTab === 'buy_service' ? (
                  <BuyAirtimeData type={serviceType} user={user!} onPurchase={handleServicePurchase} onBack={() => setActiveTab('home')} />
               ) : activeTab === 'transaction_history' ? (
@@ -696,7 +727,7 @@ const App: React.FC = () => {
               ) : activeTab === 'invite_earn' ? (
                 <InviteEarn user={user!} onBack={handleBack} />
               ) : activeTab === 'imminent_payment' ? (
-                <ImminentPayment onBack={handleBack} />
+                <ImminentPayment onBack={handleBack} systemSettings={systemSettings} />
               ) : activeTab === 'referral_dashboard' ? (
                 <TaskPage 
                   user={user!} 
@@ -841,7 +872,7 @@ const App: React.FC = () => {
             <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
           )}
           {showWelcomeAd && (
-            <TelegramAd onJoin={() => window.open('https://t.me/naira9ja001', '_blank')} onContinue={() => setShowWelcomeAd(false)} />
+            <TelegramAd onJoin={() => window.open('https://t.me/star9ja1', '_blank')} onContinue={() => setShowWelcomeAd(false)} />
           )}
           {showInviteAd && !showWelcomeAd && activeTab !== 'referral_dashboard' && activeTab !== 'imminent_payment' && (
              <InviteAd onStart={() => { setShowInviteAd(false); setTaskMode('quiz'); setActiveTab('referral_dashboard'); }} onClose={() => setShowInviteAd(false)} />

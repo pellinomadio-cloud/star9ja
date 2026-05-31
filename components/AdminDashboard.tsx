@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
-import { User } from '../types';
+import { User, SystemSettings } from '../types';
 import { saveUserToFirestore, getAllUsersFromFirestore } from '../firebase';
 
 interface AdminDashboardProps {
   onBack: () => void;
   onRefreshActiveUser: () => void;
+  systemSettings: SystemSettings | null;
+  onUpdateSystemSettings: (settings: SystemSettings) => Promise<void>;
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActiveUser }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
+  onBack, 
+  onRefreshActiveUser, 
+  systemSettings, 
+  onUpdateSystemSettings 
+}) => {
   const [usersList, setUsersList] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'banned'>('all');
@@ -17,6 +24,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
   const [globalNotifText, setGlobalNotifText] = useState('');
   const [activeReceiptModalUrl, setActiveReceiptModalUrl] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // System Payment settings state
+  const [settingsBankName, setSettingsBankName] = useState('');
+  const [settingsAccountName, setSettingsAccountName] = useState('');
+  const [settingsAccountNumber, setSettingsAccountNumber] = useState('');
+
+  useEffect(() => {
+    if (systemSettings) {
+      setSettingsBankName(systemSettings.bankName || '');
+      setSettingsAccountName(systemSettings.accountName || '');
+      setSettingsAccountNumber(systemSettings.accountNumber || '');
+    }
+  }, [systemSettings]);
+
+  const handleSavePaymentSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settingsBankName.trim() || !settingsAccountName.trim() || !settingsAccountNumber.trim()) {
+      triggerMessage("All settings fields are required", "error");
+      return;
+    }
+    try {
+      await onUpdateSystemSettings({
+        bankName: settingsBankName.trim(),
+        accountName: settingsAccountName.trim(),
+        accountNumber: settingsAccountNumber.trim(),
+      });
+      triggerMessage("System payment bank details updated and saved successfully!", "success");
+    } catch (err) {
+      triggerMessage("Failed to save payment settings.", "error");
+    }
+  };
 
   // User Account Portfolio Editing States
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
@@ -31,6 +69,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
   const [editActivationPlan, setEditActivationPlan] = useState<User['activationPlan']>('weekly');
   const [hasImminentDeactivation, setHasImminentDeactivation] = useState(false);
   const [hasDeactivation, setHasDeactivation] = useState(false);
+  const [editReferredBy, setEditReferredBy] = useState('');
 
   const handleOpenEdit = (user: User) => {
     setSelectedUserForEdit(user);
@@ -45,6 +84,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
     setEditActivationPlan(user.activationPlan || 'weekly');
     setHasImminentDeactivation(!!user.imminentDeactivationExpiry);
     setHasDeactivation(!!user.deactivationDate);
+    setEditReferredBy(user.referredBy || '');
   };
 
   const handleSaveUserEdit = (e: React.FormEvent) => {
@@ -63,6 +103,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
           isPMode: editIsPMode,
           isVMode: editIsVMode,
           activationStatus: editActivationStatus,
+          referredBy: editReferredBy.trim() || undefined,
         };
 
         if (editActivationStatus !== 'inactive') {
@@ -342,6 +383,61 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
             <Icons.Send size={12} />
             <span>Broadcast</span>
           </button>
+        </form>
+      </div>
+
+      {/* System Bank Account Details Config Form */}
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3.5">
+        <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center">
+          <Icons.Banknote className="mr-1.5 text-blue-600 text-xs" size={15} />
+          Payment Destination Vault Config
+        </h3>
+        <p className="text-[10px] text-slate-400 uppercase font-medium leading-normal">
+          Assign the primary bank account that users see and transfer to when paying for activation or upgrading to VIP.
+        </p>
+
+        <form onSubmit={handleSavePaymentSettings} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block ml-1">Bank Name</label>
+              <input 
+                type="text"
+                placeholder="e.g. Moniepoint MFB"
+                value={settingsBankName}
+                onChange={(e) => setSettingsBankName(e.target.value)}
+                className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block ml-1">Account Name</label>
+              <input 
+                type="text"
+                placeholder="e.g. Awwal Onimsi Abdulsalam"
+                value={settingsAccountName}
+                onChange={(e) => setSettingsAccountName(e.target.value)}
+                className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block ml-1">Account Number</label>
+              <input 
+                type="text"
+                placeholder="e.g. 5276179936"
+                value={settingsAccountNumber}
+                onChange={(e) => setSettingsAccountNumber(e.target.value)}
+                className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono tracking-wider font-semibold"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end pt-1">
+            <button 
+              type="submit"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-wider rounded-xl transition-all active:scale-95 shadow-md flex items-center space-x-1"
+            >
+              <Icons.CheckCircle size={12} />
+              <span>Save Bank Details</span>
+            </button>
+          </div>
         </form>
       </div>
 
@@ -677,6 +773,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onRefreshActive
                   required
                   value={editLoanBalance}
                   onChange={(e) => setEditLoanBalance(Number(e.target.value))}
+                  className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
+                />
+              </div>
+
+              {/* Sponsor / Referral Code */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Referred By / Sponsor Email</label>
+                <input 
+                  type="text"
+                  placeholder="e.g. sponsor@example.com"
+                  value={editReferredBy}
+                  onChange={(e) => setEditReferredBy(e.target.value)}
                   className="w-full text-xs text-black border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
                 />
               </div>

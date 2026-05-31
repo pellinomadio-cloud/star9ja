@@ -3,7 +3,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs } from "firebase/firestore";
-import { User } from "./types";
+import { User, SystemSettings } from "./types";
 import firebaseConfig from "./firebase-applet-config.json";
 
 // Initialize Firebase
@@ -160,6 +160,43 @@ export async function syncFirestoreToLocal(): Promise<void> {
     }
   } catch (error) {
     console.error("Sync Firestore to Local Error:", error);
+  }
+}
+
+/**
+ * Gets the customizable system-wide payment account configuration.
+ */
+export async function getPaymentSettingsFromFirestore(): Promise<SystemSettings> {
+  const path = "settings/payment";
+  try {
+    const docRef = doc(db, "settings", "payment");
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as SystemSettings;
+    }
+  } catch (error) {
+    console.error("Error reading system payment config from Firestore, using fallback:", error);
+  }
+  
+  // Return default fallbacks if document does not exist yet
+  return {
+    accountNumber: "5276179936",
+    bankName: "Moniepoint MFB",
+    accountName: "Awwal Onimsi Abdulsalam"
+  };
+}
+
+/**
+ * Saves or updates the customizable system-wide payment account configuration.
+ */
+export async function savePaymentSettingsToFirestore(settings: SystemSettings): Promise<void> {
+  const path = "settings/payment";
+  try {
+    const docRef = doc(db, "settings", "payment");
+    await setDoc(docRef, settings, { merge: true });
+    console.log("Successfully saved active payment settings to Firestore.");
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 

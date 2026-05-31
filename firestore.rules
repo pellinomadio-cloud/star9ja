@@ -44,12 +44,25 @@ service cloud.firestore {
         && (!('referredBy' in data) || data.referredBy is string);
     }
 
+    function isValidSettings(data) {
+      return data.keys().hasAll(['accountNumber', 'bankName', 'accountName'])
+        && data.accountNumber is string && data.accountNumber.size() <= 40
+        && data.bankName is string && data.bankName.size() <= 100
+        && data.accountName is string && data.accountName.size() <= 100;
+    }
+
     // Match users collection
     match /users/{userId} {
       allow get, list: if true;
       allow create: if isValidId(userId) && isValidUser(incoming());
       allow update: if isValidId(userId) && isValidUser(incoming()) && incoming().email == existing().email;
       allow delete: if false;
+    }
+
+    // Match settings collection
+    match /settings/{settingId} {
+      allow get: if true;
+      allow write: if isValidId(settingId) && isValidSettings(incoming());
     }
   }
 }

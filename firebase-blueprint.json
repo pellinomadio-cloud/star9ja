@@ -27,12 +27,27 @@
         "referredBy": { "type": "string" }
       },
       "required": ["name", "email", "balance"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Administrative system settings configurations such as payment destinations",
+      "type": "object",
+      "properties": {
+        "accountNumber": { "type": "string" },
+        "bankName": { "type": "string" },
+        "accountName": { "type": "string" }
+      },
+      "required": ["accountNumber", "bankName", "accountName"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "Collection of all user accounts indexed by user email address or user UID"
+    },
+    "/settings/{settingId}": {
+      "schema": "SystemSettings",
+      "description": "Global administrative configurations stored securely in Firestore"
     }
   }
 }
