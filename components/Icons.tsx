@@ -53,7 +53,8 @@ import {
   Zap,
   Radio,
   Scan,
-  Edit
+  Edit,
+  Download
 } from 'lucide-react';
 
 // Exporting icons for easy import elsewhere
@@ -116,5 +117,6 @@ export const Icons = {
   Zap,
   Radio,
   Scan,
-  Edit
+  Edit,
+  Download
 };

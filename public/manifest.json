@@ -1,0 +1,23 @@
+{
+  "short_name": "star9ja",
+  "name": "star9ja Mobile Banking",
+  "icons": [
+    {
+      "src": "/icon-192.jpg",
+      "type": "image/jpeg",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#FAFAFA",
+  "theme_color": "#E53935",
+  "display": "standalone",
+  "orientation": "portrait"
+}

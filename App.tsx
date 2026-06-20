@@ -27,6 +27,7 @@ import BuyNairaCode from './components/BuyNairaCode';
 import AdminDashboard from './components/AdminDashboard';
 import BusinessHub from './components/BusinessHub';
 import Loan from './components/Loan';
+import InstallPrompt from './components/InstallPrompt';
 import { Icons } from './components/Icons';
 import { User, Transaction, RewardStatus, SystemSettings } from './types';
 import { 
@@ -989,6 +990,9 @@ const App: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* PROGRESSIVE WEB APP (PWA) INSTALLER BANNER */}
+          <InstallPrompt />
         </div>
       </div>
     </div>
