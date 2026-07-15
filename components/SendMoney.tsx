@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
 import { User } from '../types';
 
@@ -10,39 +10,115 @@ interface SendMoneyProps {
   onActivateClick?: () => void;
 }
 
-const banks = [
-  "OPAY",
-  "PALMPAY",
-  "KUDA",
-  "MONIEPOINT",
-  "Access Bank",
-  "GTBank",
-  "Zenith Bank",
-  "UBA",
-  "First Bank",
-  "Fidelity Bank",
-  "Union Bank",
-  "FCMB",
-  "Sterling Bank"
+interface Bank {
+  name: string;
+  code: string;
+}
+
+const FALLBACK_BANKS: Bank[] = [
+  { name: "OPAY", code: "999992" },
+  { name: "PALMPAY", code: "999991" },
+  { name: "KUDA", code: "50211" },
+  { name: "MONIEPOINT", code: "50515" },
+  { name: "Access Bank", code: "044" },
+  { name: "GTBank", code: "058" },
+  { name: "Zenith Bank", code: "057" },
+  { name: "UBA", code: "033" },
+  { name: "First Bank", code: "011" },
+  { name: "Fidelity Bank", code: "070" },
+  { name: "Union Bank", code: "032" },
+  { name: "FCMB", code: "214" },
+  { name: "Sterling Bank", code: "232" }
 ];
 
 const SendMoney: React.FC<SendMoneyProps> = ({ user, onTransfer, onSubscribeRedirect, onGoHome, onActivateClick }) => {
   const [step, setStep] = useState<'form' | 'success'>('form');
-  const [bank, setBank] = useState('');
+  const [bankList, setBankList] = useState<Bank[]>([]);
+  const [bankCode, setBankCode] = useState('');
+  const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [amount, setAmount] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Fetch active bank list from Paystack on mount
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const res = await fetch("/api/paystack/banks");
+        const data = await res.json();
+        if (data.status && Array.isArray(data.data)) {
+          // Paystack returns a list of banks; map them to Bank interface
+          const mapped: Bank[] = data.data.map((b: any) => ({
+            name: b.name,
+            code: b.code
+          }));
+          setBankList(mapped);
+        } else {
+          setBankList(FALLBACK_BANKS);
+        }
+      } catch (err) {
+        console.error("Error fetching Paystack banks:", err);
+        setBankList(FALLBACK_BANKS);
+      }
+    };
+    fetchBanks();
+  }, []);
+
+  // Automatic real-time account verification when account number is 10 digits and bank is selected
+  useEffect(() => {
+    const verifyAccount = async () => {
+      if (accountNumber.length !== 10 || !bankCode) {
+        setAccountName('');
+        setIsVerified(false);
+        return;
+      }
+
+      setIsVerifying(true);
+      setError('');
+      setAccountName('');
+      setIsVerified(false);
+
+      try {
+        const res = await fetch(`/api/paystack/resolve?account_number=${accountNumber}&bank_code=${bankCode}`);
+        const data = await res.json();
+        if (res.ok && data.status) {
+          setAccountName(data.data.account_name);
+          setIsVerified(true);
+        } else {
+          setError(data.message || "Failed to resolve account. Verify number & bank selection.");
+          setIsVerified(false);
+        }
+      } catch (err: any) {
+        console.error("Verification error:", err);
+        setError("Network error verifying account. Please try again.");
+        setIsVerified(false);
+      } finally {
+        setIsVerifying(false);
+      }
+    };
+
+    verifyAccount();
+  }, [accountNumber, bankCode]);
 
   // Calculate deactivation state dynamically
   const isDeactivated = user.deactivationDate && Date.now() > user.deactivationDate;
 
-  const handleAccountNumberBlur = () => {
-    // No longer auto-filling name as per request guidelines
+  const handleBankChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedCode = e.target.value;
+    setBankCode(selectedCode);
+    const selected = bankList.find(b => b.code === selectedCode);
+    if (selected) {
+      setBankName(selected.name);
+    } else {
+      setBankName('');
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -51,8 +127,8 @@ const SendMoney: React.FC<SendMoneyProps> = ({ user, onTransfer, onSubscribeRedi
         return;
     }
 
-    if (!accountName) {
-        setError("Please enter the Account Name");
+    if (!isVerified) {
+        setError("Account details are not verified.");
         return;
     }
 
@@ -69,12 +145,34 @@ const SendMoney: React.FC<SendMoneyProps> = ({ user, onTransfer, onSubscribeRedi
 
     setIsLoading(true);
 
-    // Simulate API transfer call
-    setTimeout(() => {
-        onTransfer(transferAmount, `Withdrawal to ${bank} - ${accountName}`);
-        setIsLoading(false);
-        setStep('success');
-    }, 1500);
+    try {
+      const response = await fetch("/api/paystack/withdraw", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userId: user.email,
+          bankName,
+          accountNumber,
+          accountName,
+          amount: transferAmount
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.status) {
+        throw new Error(resData.message || "Failed to process withdrawal.");
+      }
+
+      onTransfer(transferAmount, `Withdrawal to ${bankName} - ${accountName}`);
+      setIsLoading(false);
+      setStep('success');
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      setError(err.message || "Withdrawal failed. Please check your network and balance.");
+      setIsLoading(false);
+    }
   };
 
   // If the account's activationStatus is not active, display the locked state screen redirecting to activation
@@ -180,7 +278,7 @@ const SendMoney: React.FC<SendMoneyProps> = ({ user, onTransfer, onSubscribeRedi
         <div className="bg-slate-50 p-4 rounded-xl w-full max-w-sm border border-slate-100">
             <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-xs text-gray-500">Bank</span>
-                <span className="text-sm font-bold text-slate-800">{bank}</span>
+                <span className="text-sm font-bold text-slate-800">{bankName}</span>
             </div>
              <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-xs text-gray-500">Account</span>
@@ -219,14 +317,14 @@ const SendMoney: React.FC<SendMoneyProps> = ({ user, onTransfer, onSubscribeRedi
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Select Bank</label>
             <div className="relative">
                 <select
-                    value={bank}
-                    onChange={(e) => setBank(e.target.value)}
+                    value={bankCode}
+                    onChange={handleBankChange}
                     required
                     className="w-full p-3.5 bg-slate-50 border border-slate-150 rounded-xl appearance-none text-slate-800 font-bold focus:ring-2 focus:ring-black outline-none text-xs"
                 >
                     <option value="" disabled>Choose a bank</option>
-                    {banks.map(b => (
-                        <option key={b} value={b}>{b}</option>
+                    {bankList.map(b => (
+                        <option key={b.code} value={b.code}>{b.name}</option>
                     ))}
                 </select>
                 <Icons.ChevronRight className="absolute right-3.5 top-4 text-slate-500 rotate-90" size={17} />
@@ -241,7 +339,6 @@ const SendMoney: React.FC<SendMoneyProps> = ({ user, onTransfer, onSubscribeRedi
                 onChange={(e) => {
                     if (e.target.value.length <= 10) setAccountNumber(e.target.value);
                 }}
-                onBlur={handleAccountNumberBlur}
                 placeholder="0123456789"
                 required
                 className="w-full p-3.5 bg-slate-50 border border-slate-150 rounded-xl text-slate-850 placeholder-slate-350 focus:ring-2 focus:ring-black outline-none font-mono text-base tracking-widest font-black"
@@ -250,14 +347,27 @@ const SendMoney: React.FC<SendMoneyProps> = ({ user, onTransfer, onSubscribeRedi
 
         <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Account Name</label>
-            <input
-                type="text"
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                placeholder="Receiver Name"
-                required
-                className="w-full p-3.5 bg-slate-50 border border-slate-150 rounded-xl text-slate-800 font-bold text-xs focus:ring-2 focus:ring-black outline-none"
-            />
+            <div className="relative">
+                <input
+                    type="text"
+                    value={accountName}
+                    readOnly
+                    placeholder={isVerifying ? "Verifying with Paystack..." : "Account Name (Verified Automatically)"}
+                    required
+                    className="w-full p-3.5 bg-slate-100 border border-slate-150 rounded-xl text-slate-800 font-bold text-xs focus:ring-2 focus:ring-black outline-none cursor-not-allowed"
+                />
+                {isVerifying && (
+                    <div className="absolute right-3.5 top-4 flex items-center justify-center h-full">
+                        <div className="animate-spin rounded-full h-4.5 w-4.5 border-2 border-black border-t-transparent"></div>
+                    </div>
+                )}
+                {isVerified && (
+                    <div className="absolute right-3.5 top-4.5 flex items-center space-x-1 text-green-600">
+                        <Icons.Check size={14} />
+                        <span className="text-[9px] font-extrabold uppercase tracking-widest">VERIFIED</span>
+                    </div>
+                )}
+            </div>
         </div>
 
         <div>
@@ -280,8 +390,8 @@ const SendMoney: React.FC<SendMoneyProps> = ({ user, onTransfer, onSubscribeRedi
 
         <button
             type="submit"
-            disabled={isLoading || !bank || !accountNumber || !amount || !accountName}
-            className="w-full py-4 bg-black hover:bg-slate-800 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-lg transition-all mt-6 flex items-center justify-center space-x-2"
+            disabled={isLoading || isVerifying || !isVerified || !bankCode || !accountNumber || !amount}
+            className="w-full py-4 bg-black hover:bg-slate-800 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-lg transition-all mt-6 flex items-center justify-center space-x-2 cursor-pointer disabled:cursor-not-allowed"
         >
           {isLoading ? (
               <span>Processing Payout...</span>

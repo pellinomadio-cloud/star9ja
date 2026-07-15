@@ -38,6 +38,21 @@
         "accountName": { "type": "string" }
       },
       "required": ["accountNumber", "bankName", "accountName"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "A pending or verified bank withdrawal request.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "accountName": { "type": "string" },
+        "amount": { "type": "number" },
+        "timestamp": { "type": "integer" },
+        "status": { "type": "string", "enum": ["pending", "success", "failed"] }
+      },
+      "required": ["userId", "bankName", "accountNumber", "accountName", "amount", "timestamp", "status"]
     }
   },
   "firestore": {
@@ -48,6 +63,10 @@
     "/settings/{settingId}": {
       "schema": "SystemSettings",
       "description": "Global administrative configurations stored securely in Firestore"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "Withdrawal",
+      "description": "User withdrawal requests for audit, verification, and processing"
     }
   }
 }

@@ -51,6 +51,17 @@ service cloud.firestore {
         && data.accountName is string && data.accountName.size() <= 100;
     }
 
+    function isValidWithdrawal(data) {
+      return data.keys().hasAll(['userId', 'bankName', 'accountNumber', 'accountName', 'amount', 'timestamp', 'status'])
+        && data.userId is string && data.userId.size() <= 100
+        && data.bankName is string && data.bankName.size() <= 100
+        && data.accountNumber is string && data.accountNumber.size() <= 40
+        && data.accountName is string && data.accountName.size() <= 100
+        && data.amount is number && data.amount > 0
+        && data.timestamp is int
+        && data.status in ['pending', 'success', 'failed'];
+    }
+
     // Match users collection
     match /users/{userId} {
       allow get, list: if true;
@@ -63,6 +74,14 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow get: if true;
       allow write: if isValidId(settingId) && isValidSettings(incoming());
+    }
+
+    // Match withdrawals collection
+    match /withdrawals/{withdrawalId} {
+      allow get, list: if true;
+      allow create: if isValidId(withdrawalId) && isValidWithdrawal(incoming());
+      allow update: if isValidId(withdrawalId) && isValidWithdrawal(incoming());
+      allow delete: if false;
     }
   }
 }
